@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="devs.delminius.ApplicationTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2021-12-14T14:49:14" hostname="Ivans-MacBook-Pro.local" time="0.69">
+  <properties/>
+  <testcase name="testRoot" classname="devs.delminius.ApplicationTest" time="0.69"/>
+  <system-out><![CDATA[2021-12-14 15:49:14.582 [Test worker] INFO  ktor.test - Autoreload is disabled because the development mode is off.
+2021-12-14 15:49:14.620 [Test worker] INFO  ktor.test - Application started in 0.12 seconds.
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
