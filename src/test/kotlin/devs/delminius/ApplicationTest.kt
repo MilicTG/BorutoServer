@@ -2,6 +2,8 @@ package devs.delminius
 
 import devs.delminius.models.ApiResponse
 import devs.delminius.repository.HeroRepository
+import devs.delminius.repository.NEXT_PAGE_KEY
+import devs.delminius.repository.PREVIOUS_PAGE_KEY
 import io.ktor.http.*
 import io.ktor.application.*
 import kotlin.test.*
@@ -15,36 +17,16 @@ class ApplicationTest {
     private val heroRepository: HeroRepository by inject(HeroRepository::class.java)
 
     @Test
-    fun `access root endpoint, assert correct information`() {
+    fun `access all heroes endpoint, query non existing page number, assert error`() {
         withTestApplication(moduleFunction = Application::module) {
-            handleRequest(HttpMethod.Get, "/").apply {
+            handleRequest(HttpMethod.Get, "/boruto/heroes?page=6").apply {
                 assertEquals(
-                    HttpStatusCode.OK,
-                    response.status()
-                )
-                assertEquals(
-                    expected = "Welocome to Boeuto API!",
-                    response.content
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `access all heroes endpoint, assert correct information`() {
-        withTestApplication(moduleFunction = Application::module) {
-            handleRequest(HttpMethod.Get, "/boruto/heroes").apply {
-                assertEquals(
-                    expected = HttpStatusCode.OK,
+                    expected = HttpStatusCode.BadRequest,
                     actual = response.status()
                 )
                 val expected = ApiResponse(
-                    success = true,
-                    message = "ok",
-                    prevPage = null,
-                    nextPage = 2,
-                    heroes = heroRepository.page1,
-                    lastUpdated = System.currentTimeMillis()
+                    success = false,
+                    message = "Heroes not found."
                 )
                 val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
                 println("EXPECTED $expected")
@@ -55,5 +37,147 @@ class ApplicationTest {
                 )
             }
         }
+    }
+
+    @Test
+    fun `access all search heroes endpoint, query hero name, assert single hero result`() {
+        withTestApplication(moduleFunction = Application::module) {
+            handleRequest(HttpMethod.Get, "/boruto/heroes/search?name=sas").apply {
+                assertEquals(
+                    expected = HttpStatusCode.OK,
+                    actual = response.status()
+                )
+                val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
+                    .heroes.size
+                assertEquals(
+                    expected = 1,
+                    actual = actual
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `access all search heroes endpoint, query hero name, assert multiple heroes result`() {
+        withTestApplication(moduleFunction = Application::module) {
+            handleRequest(HttpMethod.Get, "/boruto/heroes/search?name=sa").apply {
+                assertEquals(
+                    expected = HttpStatusCode.OK,
+                    actual = response.status()
+                )
+                val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
+                    .heroes.size
+                assertEquals(
+                    expected = 3,
+                    actual = actual
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `access all search heroes endpoint, query empty text, assert empty list as result`() {
+        withTestApplication(moduleFunction = Application::module) {
+            handleRequest(HttpMethod.Get, "/boruto/heroes/search?name=").apply {
+                assertEquals(
+                    expected = HttpStatusCode.OK,
+                    actual = response.status()
+                )
+                val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
+                    .heroes
+                assertEquals(
+                    expected = emptyList(),
+                    actual = actual
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `access all search heroes endpoint, query non existing hero, assert empty list as result`() {
+        withTestApplication(moduleFunction = Application::module) {
+            handleRequest(HttpMethod.Get, "/boruto/heroes/search?name=unknown").apply {
+                assertEquals(
+                    expected = HttpStatusCode.OK,
+                    actual = response.status()
+                )
+                val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
+                    .heroes
+                assertEquals(
+                    expected = emptyList(),
+                    actual = actual
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `access non existing endpoint, assert not found`() {
+        withTestApplication(moduleFunction = Application::module) {
+            handleRequest(HttpMethod.Get, "/unknown").apply {
+                assertEquals(
+                    expected = HttpStatusCode.NotFound,
+                    actual = response.status()
+                )
+                assertEquals(
+                    expected = "Page not found",
+                    actual = response.content
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `access all heroes endpoint, query all pages, assert correct information`() {
+        withTestApplication(moduleFunction = Application::module) {
+
+            val pages = 1..5
+            val heroes = listOf(
+                heroRepository.page1,
+                heroRepository.page2,
+                heroRepository.page3,
+                heroRepository.page4,
+                heroRepository.page5
+            )
+
+            pages.forEach { page ->
+                handleRequest(HttpMethod.Get, "/boruto/heroes?page=$page").apply {
+                    assertEquals(
+                        expected = HttpStatusCode.OK,
+                        actual = response.status()
+                    )
+                    val expected = ApiResponse(
+                        success = true,
+                        message = "ok",
+                        prevPage = calculatePage(page = page)["prevPage"],
+                        nextPage = calculatePage(page = page)["nextPage"],
+                        heroes = heroes[page - 1]
+                    )
+                    val actual = Json.decodeFromString<ApiResponse>(response.content.toString())
+                    assertEquals(
+                        expected = expected,
+                        actual = actual
+                    )
+                }
+            }
+        }
+    }
+
+    private fun calculatePage(page: Int): Map<String, Int?> {
+        var prevPage: Int? = page
+        var nextPage: Int? = page
+        if (page in 1..4) {
+            nextPage = nextPage?.plus(1)
+        }
+        if (page in 2..5) {
+            prevPage = prevPage?.minus(1)
+        }
+        if (page == 1) {
+            prevPage = null
+        }
+        if (page == 5) {
+            nextPage = null
+        }
+        return mapOf(PREVIOUS_PAGE_KEY to prevPage, NEXT_PAGE_KEY to nextPage)
     }
 }
